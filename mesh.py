@@ -1,6 +1,7 @@
 from duplicity.pexpect import which
 
 import numpy as np
+from numpy.core.numeric import indices
 import time
 
 def iterExtra(tab):     #  bierze wiersz z cells np. [0 1 11 12]  i dodaje do niego na koncu pierwszy element [0 1 11 12 0]
@@ -25,6 +26,7 @@ class Mesh:
         self.Se = self.__Se__()
         self.normals, self.eLengths = self.__normals_and_edge_lengths__()
         self.cell_centers = self.__cell_center__()
+        self.internalEdges = self.__internal_edges__()
 
     #gdy chcemy wywolac prywatna funkcje ale dopiero gdy ktos o nia zapyta (dostanie wtedy macierz) (*****)
     # @property
@@ -76,6 +78,13 @@ class Mesh:
             area += 0.5 * (coord_list[i + 2] + coord_list[i]) * (coord_list[i + 3] - coord_list[i + 1])
         return area
 
+    def __internal_edges__(self):
+        ids = list()
+
+        for i, k in enumerate(self.list_kr):
+            if k[3] > -1:
+                ids.append(i)
+        return ids
 
     # zapisuje 4 war brzegowe jako liste z numerami krawedzi
     def __bound_to_edge_bound__(self, boundaries):                      # boundaries zawiera 4 krawedzie z siatki reg prost
@@ -141,7 +150,7 @@ class Mesh:
         for cell in self.cells:                          # [ 1 0 12 11]  = [kr1 kr2 kr3 kr4]
            s += len(cell)                                # zlicza ile w kolejnych komurkach pkt (krawedzi) (liczy ile jest w wierszu [1 2 12 11] czyli 4 krawedzie
 
-        lista_kr = np.array([[0] * 4] * s)
+        lista_kr = np.array([[0] * 4] * s, dtype=int)
 
         for i, cell in enumerate(self.cells):
 

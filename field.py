@@ -221,9 +221,9 @@ class SurfField:
 class EdgeField:
     def __init__(self, mesh, dim=1):                             #   wymiar dla T - dim = 1 dla v = 1 do 3
         if dim > 1:
-            self.data = np.zeros( (len(mesh.list_kr), dim) )
+            self.data = np.zeros( (len(mesh.list_kr), dim), dtype=float )
         else:
-            self.data = np.zeros(len(mesh.list_kr))
+            self.data = np.zeros(len(mesh.list_kr), dtype=float)
 
         self.edgesdef = mesh.list_kr
         self.mesh = mesh
@@ -389,15 +389,19 @@ def grad(surfField):                     # Green - Gauss
 
     cellGrad = np.zeros((len(mesh.cells), 2), dtype=float)
 
-    for e, (defE, valE) in enumerate(zip(mesh.list_kr, efield.data)):
+    edgeVecs = mesh.Se * efield.data[:, np.newaxis]
 
-        cellGrad[defE[2], :] += mesh.Se[e]*valE
+    np.add.at(cellGrad, mesh.list_kr[:,2], edgeVecs)
+    np.subtract.at(cellGrad, mesh.list_kr[mesh.internalEdges,3], edgeVecs[mesh.internalEdges])
 
-        if defE[3] >= 0:
-            cellGrad[defE[3], :] -= mesh.Se[e]*valE
+    # for e, (defE, valE) in enumerate(zip(mesh.list_kr, efield.data)):
+    #
+    #     cellGrad[defE[2], :] += mesh.Se[e]*valE
+    #
+    #     if defE[3] > -1:
+    #         cellGrad[defE[3], :] -= mesh.Se[e]*valE
 
-    cellGrad[:, 0] = cellGrad[:, 0] / mesh.cells_areas
-    cellGrad[:, 1] = cellGrad[:, 1] / mesh.cells_areas
+    cellGrad /= mesh.cells_areas[:, np.newaxis]
 
     return cellGrad
 

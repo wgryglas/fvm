@@ -15,9 +15,9 @@ dy = DlPrzY/n
 
 dt = 0.0001                                                 # CFL u*dt/dx <= 1
 tp = 0
-tk = 0.1
+tk = 0.01
 
-nt = (tk - tp)/dt
+nt = int((tk - tp)/dt)
 
 x0, y0, dl = (0, 0, 0)
 
@@ -58,10 +58,8 @@ T.setBoundaryCondition(Neuman(mesh, 3, 0))              # symetria na krawedzi 3
 # d[:] = 1                                               # domyslnie zainicjalizowana zerami (dziedziczy po EdgeField) tu zapisuje te krawedz wartoscia = 1
 # T.setBoundaryCondition(d)
 
-from fvMatrix import fvMatrix
 
-
-M, F = laplace(T, fvMatrix)       #sLaplace(T)         # ukladanie macierzy i wektora prawych stron laplace
+M, F = laplace(dt/mesh.cells_areas, T)       #sLaplace(T)         # ukladanie macierzy i wektora prawych stron laplace
 
 np.set_printoptions(precision=3)
 
@@ -80,14 +78,14 @@ pkt3 = n/2 + n*(n-5)                     # srodek 4 wiersze od gory
 I = fvMatrix.diagonal(mesh)
 
 
-M = I - M*dt
-Fconst = -F*dt
+M = I - M
+Fconst = F
 
 
 T.data[:] = 0                          # War. Pocz. # [:] do listy przypisze wartosc 0, samo = przypisze inny obiekt przypisuje wszedzie wartosc 0
 for i, point in enumerate(T.data):
     if i < (n**2)/2:
-        T.data[i] = 10
+        T.data[i] = 10.
 
 
 print ">>>> Equations generated in " , time.clock()-start
@@ -97,17 +95,12 @@ Results = list()
 Tn = T.data.reshape((n, n))
 Results.append(Tn)
 
+from scipy.sparse.linalg.isolve.iterative import cg
 
-from scipy.sparse.linalg.isolve.iterative import bicgstab
-
-for iter in range(int(nt)):
+for iter in range(nt):
     print 'time iteration:',iter
 
-    F = Fconst + T.data
-    # T.data = np.array(np.linalg.solve(M, F))
-    T.data = bicgstab(A=M.sparse, b=F, x0=T.data)[0]
-
-    T.data = T.data.reshape((len(F), 1))
+    T.setValues( cg(A=M.sparse, b=F+T.data, x0=T.data)[0] )
 
     Tn = T.data.reshape((n, n))
     Results.append(Tn)
@@ -115,7 +108,7 @@ for iter in range(int(nt)):
 print ">>>> Solved in ", time.clock()-start
 
 # Animate results:
-animate_contour_plot(Results, skip=10, repeat=False, interval=75, dataRange=[0, 10])
-
+animate_contour_plot([T.data.reshape((n,n))], skip=1, repeat=False, interval=5, dataRange=[0, 10])
+plt.show()
 #draw_values_edges(mesh.xy, mesh.cells, mesh.list_kr, T, n, DlPrzX, DlPrzY, Tdir)
 #draw_edges(mesh.xy, mesh.list_kr)

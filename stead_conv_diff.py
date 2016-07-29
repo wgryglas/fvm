@@ -54,7 +54,7 @@ Fd[pkt2] += 0.00001
 # Fd[pkt3] += -200
 
 M = Mc - Md  #
-F = Fd - Fc  #
+F = -(Fc - Fd)  #
 
 # print "Mc diag", Mc.diag
 # print "Mc data",Mc.data
@@ -70,9 +70,6 @@ F = Fd - Fc  #
 # print "M diag",M.diag
 # print M.sparse
 
-
-print Mc.sparse
-print F
 
 
 res, info = bicgstab(A=M.sparse, b=F, x0=T.data, tol=1e-8, maxiter=250e3)

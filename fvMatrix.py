@@ -93,7 +93,7 @@ class fvMatrix:                   # do sparse co na przek, jakie wartosci (data)
 
 
     def dot(self, X):
-        if X.shape[1] is None:
+        if (len(X.shape) == 1) or (X.shape[1] is None) or (X.shape[1] == 0):
             return self.matvec(X)
         else:
             #implement matrix - matrix multiplication
@@ -262,7 +262,6 @@ class fvMatrix:                   # do sparse co na przek, jakie wartosci (data)
             mat.diag = [diagValue for i in range(mat.shape[0])]
         elif len(diagValue) == mat.shape[0]:
             mat.diag = diagValue
-
         else:
             raise Exception("Can't assign vector of length "+str(len(diagValue)) +
                             " to diagonal of matrix "+str(mat.shape))

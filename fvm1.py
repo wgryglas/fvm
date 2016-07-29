@@ -76,15 +76,22 @@ def laplace(coeff, field, matrixGeneratorFunction = fvMatrix):    # matrixProvid
     macierz_K_e = matrixGeneratorFunction(field.mesh)
     mesh = field.mesh
 
-    from field import EdgeField, SurfField, Neuman
-    coeffField = SurfField(mesh, bcGenerator=Neuman)
-
     if not hasattr(coeff, "__iter__"):                  # czy to liczba czy tablica
-        coeff = np.ones(len(mesh.cells)) * coeff
+        coeff = np.ones((len(mesh.cells),2), dtype=float) * coeff
+    elif isinstance(coeff, np.ndarray) and (len(coeff.shape) == 1 or coeff.shape[1] == 1):
+        coeff = np.array([coeff,coeff]).T
 
-    coeffField.setValues(np.array(coeff))
 
-    edgeCoeff = EdgeField.interp(coeffField)
+    from field import EdgeField, SurfField, Neuman
+    if not isinstance(coeff, EdgeField):
+        coeffFieldX = SurfField(mesh, bcGenerator=Neuman)
+        coeffFieldY = SurfField(mesh, bcGenerator=Neuman)
+        coeffFieldX.setValues(np.array(coeff[:, 0]))
+        coeffFieldY.setValues(np.array(coeff[:, 1]))
+        edgeCoeff = EdgeField.vector(EdgeField.interp(coeffFieldX), EdgeField.interp(coeffFieldY))
+
+    edgeCoeff.data = np.sum(edgeCoeff.data * mesh.normals, axis=1)
+
 
     for i, kraw in enumerate(lista_kra):
         if kraw[3] > -1:
@@ -94,7 +101,8 @@ def laplace(coeff, field, matrixGeneratorFunction = fvMatrix):    # matrixProvid
 
             CF = cF - cC
             Snorm = mesh.Se[i]
-            a = edgeCoeff.data[i] * np.dot(CF, Snorm) / np.dot(CF, CF)
+            coeff = edgeCoeff.data[i]
+            a = coeff * np.dot(CF, Snorm) / np.dot(CF, CF)
 
             # Wstawiamy wsp. do ukladu rownan
             macierz_K_e[c, c] += - a                         # to co odp wlascicielowi, diagonalny element
