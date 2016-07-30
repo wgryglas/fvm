@@ -4,6 +4,8 @@ from fvm1 import *
 from field import *
 from interpolacja import *
 
+np.set_printoptions(precision=3)
+
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!  Zmienne w czasie zapis macierzy zadkich jako "wektory" !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 DlPrzX = 1.; DlPrzY = 1.
@@ -34,59 +36,34 @@ print ">>>> Mesh generated in " , time.clock()-start
 start = time.clock()
 
 
-T = SurfField(mesh)                                       # tworzy obiekt klasy SurfField, pobierajacy obirkt mesh klasy Mesh ( na tej siatce ma tworzyc i przechowywac rozwiazanie (wartosci))
+# tworzy obiekt klasy SurfField, pobierajacy obirkt mesh klasy Mesh ( na tej siatce ma tworzyc i przechowywac rozwiazanie (wartosci))
+T = SurfField(mesh, Dirichlet)
 
-#print mesh.cell_centers
-
-
-Tdir = 1
-TdirWB = 0
-
-T.setBoundaryCondition(Neuman(mesh, 0, 0))               # zero odpowiada zerowej krawedzi pobiera obiekt klasy Dirichlet (wywoluje go i tworzy)
+#T.setBoundaryCondition(Neuman(mesh, 0, 0))               # zero odpowiada zerowej krawedzi pobiera obiekt klasy Dirichlet (wywoluje go i tworzy)
 #T.setBoundaryCondition(Dirichlet(mesh, 0, TdirWB))
 
-T.setBoundaryCondition(Neuman(mesh, 1, 0))
-#T.setBoundaryCondition(Dirichlet(mesh, 1, TdirWB))
+#T.setBoundaryCondition(Neuman(mesh, 1, 0))
+# T.setBoundaryCondition(Dirichlet(mesh, 1, TdirWB))
 
-T.setBoundaryCondition(Neuman(mesh, 2, 0))
-#T.setBoundaryCondition(Dirichlet(mesh, 2, TdirWB))
+#T.setBoundaryCondition(Neuman(mesh, 2, 0))
+#T.setBoundaryCondition(Dirichlet(mesh, 2, 1.))
 
-T.setBoundaryCondition(Neuman(mesh, 3, 0))              # symetria na krawedzi 3 (4)
-#T.setBoundaryCondition(Dirichlet(mesh, 3, TdirWB))
-
-# d = Dirichlet(mesh, 3, TdirWB)
-# d[:] = 1                                               # domyslnie zainicjalizowana zerami (dziedziczy po EdgeField) tu zapisuje te krawedz wartoscia = 1
-# T.setBoundaryCondition(d)
+#T.setBoundaryCondition(Neuman(mesh, 3, 0))              # symetria na krawedzi 3 (4)
+# T.setBoundaryCondition(Dirichlet(mesh, 3, TdirWB))
 
 
-M, F = laplace(dt/mesh.cells_areas, T)       #sLaplace(T)         # ukladanie macierzy i wektora prawych stron laplace
-
-np.set_printoptions(precision=3)
-
-#print Fc
-
-pkt1 = n/2 + n*n/2                       # pkt srodek
-pkt2 = n/2 + n*5                         # srodek 4 wiersze od spodu
-pkt3 = n/2 + n*(n-5)                     # srodek 4 wiersze od gory
-
-#F[pkt1] += -300
-#F[pkt2] += -200
-#F[pkt3] += -200
-
-
-
-I = fvMatrix.diagonal(mesh)
-
-
-M = I - M
-Fconst = F
-
-
-T.data[:] = 0                          # War. Pocz. # [:] do listy przypisze wartosc 0, samo = przypisze inny obiekt przypisuje wszedzie wartosc 0
 for i, point in enumerate(T.data):
     if i < (n**2)/2:
-        T.data[i] = 10.
+        T.data[i] = 1.
 
+T.updateBoundaryValues()
+
+
+M, F = laplace(1, T)       #sLaplace(T)         # ukladanie macierzy i wektora prawych stron laplace
+
+I = fvMatrix.diagonal(mesh, mesh.cells_areas/dt)
+
+M = I - M
 
 print ">>>> Equations generated in " , time.clock()-start
 start = time.clock()
@@ -95,12 +72,12 @@ Results = list()
 Tn = T.data.reshape((n, n))
 Results.append(Tn)
 
-from scipy.sparse.linalg.isolve.iterative import cg
+from scipy.sparse.linalg.isolve.iterative import bicgstab
 
 for iter in range(nt):
     print 'time iteration:',iter
 
-    T.setValues( cg(A=M.sparse, b=F+T.data, x0=T.data)[0] )
+    T.setValues( bicgstab(A=M.sparse, b=F+T.data*mesh.cells_areas/dt, x0=T.data,  tol=1e-8)[0] )
 
     Tn = T.data.reshape((n, n))
     Results.append(Tn)
@@ -108,7 +85,16 @@ for iter in range(nt):
 print ">>>> Solved in ", time.clock()-start
 
 # Animate results:
-animate_contour_plot([T.data.reshape((n,n))], skip=1, repeat=False, interval=5, dataRange=[0, 10])
+import matplotlib.pyplot as plt
+
+# X, Y = np.meshgrid(np.linspace(0, 1, n), np.linspace(0, 1, n))
+# fig = plt.figure()
+# plt.axes().set_aspect('equal', 'datalim')
+# ticks = np.linspace(0, 10, 11)
+# cs = plt.contourf(X, Y, T.data.reshape((n,n)), )
+# cbar = fig.colorbar(cs, ticks=ticks)
+# cbar.ax.set_yticklabels(map(str, ticks))
+anim=animate_contour_plot(Results, skip=1, repeat=False, interval=5, dataRange=[0, 1])
 plt.show()
 #draw_values_edges(mesh.xy, mesh.cells, mesh.list_kr, T, n, DlPrzX, DlPrzY, Tdir)
 #draw_edges(mesh.xy, mesh.list_kr)

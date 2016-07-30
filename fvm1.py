@@ -83,15 +83,15 @@ def laplace(coeff, field, matrixGeneratorFunction = fvMatrix):    # matrixProvid
 
 
     from field import EdgeField, SurfField, Neuman
-    if not isinstance(coeff, EdgeField):
-        coeffFieldX = SurfField(mesh, bcGenerator=Neuman)
-        coeffFieldY = SurfField(mesh, bcGenerator=Neuman)
-        coeffFieldX.setValues(np.array(coeff[:, 0]))
-        coeffFieldY.setValues(np.array(coeff[:, 1]))
-        edgeCoeff = EdgeField.vector(EdgeField.interp(coeffFieldX), EdgeField.interp(coeffFieldY))
 
-    edgeCoeff.data = np.sum(edgeCoeff.data * mesh.normals, axis=1)
+    coeffFieldX = SurfField(mesh, bcGenerator=Neuman)
+    coeffFieldY = SurfField(mesh, bcGenerator=Neuman)
+    coeffFieldX.setValues(np.array(coeff[:, 0]))
+    coeffFieldY.setValues(np.array(coeff[:, 1]))
+    edgeCoeff = EdgeField.vector(EdgeField.interp(coeffFieldX), EdgeField.interp(coeffFieldY))
 
+    # edgeCoeff.data = np.sum(edgeCoeff.data * mesh.normals, axis=1)
+    # edgeCoeff.data = np.ones(edgeCoeff.data.shape[0])*0.25
 
     for i, kraw in enumerate(lista_kra):
         if kraw[3] > -1:
@@ -102,7 +102,7 @@ def laplace(coeff, field, matrixGeneratorFunction = fvMatrix):    # matrixProvid
             CF = cF - cC
             Snorm = mesh.Se[i]
             coeff = edgeCoeff.data[i]
-            a = coeff * np.dot(CF, Snorm) / np.dot(CF, CF)
+            a = np.dot(CF, Snorm*coeff) / np.dot(CF, CF)
 
             # Wstawiamy wsp. do ukladu rownan
             macierz_K_e[c, c] += - a                         # to co odp wlascicielowi, diagonalny element
@@ -324,8 +324,12 @@ def animate_contour_plot(framesDatas, sizeX=(0, 1), sizeY=(0, 1), dataRange=None
     import matplotlib.pyplot as plt
     from matplotlib import animation
 
+    if not isinstance(framesDatas, list):
+        framesDatas = [framesDatas]
+
     if len(framesDatas) == 0:
         raise Exception("Data frames number should be at least one")
+
 
     Nx, Ny = framesDatas[0].shape
 

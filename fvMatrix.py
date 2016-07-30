@@ -54,7 +54,7 @@ class fvMatrix:                   # do sparse co na przek, jakie wartosci (data)
 
         for rowId, row in enumerate(self.data):
             dV = self.diag[rowId]
-            if dV != 0:
+            if dV != 0.:
                 self.vectorData.append(dV)
             for val in row:
                 self.vectorData.append(val)

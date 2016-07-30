@@ -1,7 +1,4 @@
-from duplicity.pexpect import which
-
 import numpy as np
-from numpy.core.numeric import indices
 import time
 
 def iterExtra(tab):     #  bierze wiersz z cells np. [0 1 11 12]  i dodaje do niego na koncu pierwszy element [0 1 11 12 0]

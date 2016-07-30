@@ -71,8 +71,7 @@ class Dirichlet(BoundaryField):                                         # clasa 
         return self.data.__getitem__(item)
 
     def insertDiffusiveFlux(self, edgeFieldCoeff, EqMat, Rhs):                      # dopisuje do macierzy_K WB
-        for i, _ in enumerate(self.mesh.boundaries[self.id]):
-            id_edge = self.mesh.boundaries[self.id, i]              # indeks krawedzi w WB
+        for i, id_edge in enumerate(self.mesh.boundaries[self.id,:]):
             field = self.field
             c = self.mesh.list_kr[id_edge, 2]                       # pobierz wlascicela tej krawedzi
 
@@ -82,10 +81,11 @@ class Dirichlet(BoundaryField):                                         # clasa 
 
             CK = pK - pC
             Snorm = field.mesh.Se[id_edge]
-            a = edgeFieldCoeff.data[id_edge] * np.dot(CK, Snorm) / np.dot(CK, CK)
+            coeff = edgeFieldCoeff.data[id_edge]
+            a = np.dot(CK, Snorm * coeff) / np.dot(CK, CK)
 
-            EqMat[c, c] += - a
-            Rhs[c] += self.data[i] * a                 # wartosc na brzegu przemnozona przez wspolczynnik. -= bo przerzucamy do wekt. prawych stron
+            EqMat[c, c] += -a
+            Rhs[c] += self.data[i] * a                 # wartosc na brzegu przemnozona przez wspolczynnik.
 
 
     def insertConvectiveFlux(self, EqMat, Rhs, phi):
@@ -142,11 +142,11 @@ class Neuman(BoundaryField):                                        # klasa dla 
 
 
     def insertDiffusiveFlux(self, edgeFieldCoeff, EqMat, Rhs):  # pobiera macierz K i wektor pr stron
-        #print len(self.mesh.boundaries[self.id])
-        for i in range(len(self.mesh.boundaries[self.id])):
-            id_edge = self.mesh.boundaries[self.id, i]                          # indeks krawedzi w WB
-            c = self.field.mesh.list_kr[id_edge, 2]                             # indeks wlasciciela do niego dopicac w rhs
-            Rhs[c] += edgeFieldCoeff.data[id_edge] * self.deriv * self.field.mesh.eLengths[id_edge]      #  dodac razy dlugosc
+        for local_id, global_id in enumerate(self.mesh.boundaries[self.id,:]):
+            c = self.field.mesh.list_kr[global_id, 2]
+            Rhs[c] += self.deriv * np.dot(self.mesh.Se[global_id],edgeFieldCoeff.data[global_id])
+
+
 
     def insertConvectiveFlux(self, EqMat, Rhs, phi):
         for i, _ in enumerate(self.mesh.boundaries[self.id]):
@@ -379,8 +379,7 @@ def generate_phi_r_2(mesh):
     return vals_return
 
 
-def grad(surfField):                     # Green - Gauss
-
+def cellGrad(surfField):                     # Green - Gauss
     import numpy as np
 
     mesh = surfField.mesh
@@ -404,6 +403,44 @@ def grad(surfField):                     # Green - Gauss
     cellGrad /= mesh.cells_areas[:, np.newaxis]
 
     return cellGrad
+
+
+def edgeGrad(surfField):
+    """
+    Gradient computed at face centers
+    :param surfField: surface field
+    :return: EdgeField
+    """
+    import numpy as np
+
+    mesh = surfField.mesh
+
+    eGrad = EdgeField(mesh,2)
+
+    for e, edef in enumerate(mesh.list_kr):
+        if edef[3] > -1:
+            # gradient over interanl edges:
+            e,w = edef[2:]
+            EW = mesh.cell_centers[w] - mesh.cell_centers[e]
+            eGrad.data[e,:] = (surfField.data[w] - surfField.data[e])/np.dot(EW,EW) * EW
+        else:
+            # gradient over boundary edges:
+            e = edef[2]
+            #find vector from cell center to edge center
+            EE = mesh.edgeCenters[e] - mesh.cell_centers[e]
+
+            #find value at boundary
+            bVal = 0.
+            for bId, boudary in enumerate(mesh.boundaries):
+                for locId, gEdge in enumerate(boudary):
+                    if gEdge == e:
+                        bVal = surfField.boundaries[bId].data[locId]
+
+            #comput graient
+            eGrad.data[e,:] = (bVal - surfField.data[e])/np.dot(EE,EE) * EE
+
+    return eGrad
+
 
 
 def edgeDiv(edgeField):                     # calka obj z dywergencj po krawedziach

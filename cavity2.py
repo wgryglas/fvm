@@ -54,10 +54,6 @@ Myd, Fyd = laplace(viscosity, Uy)
 
 from scipy.sparse.linalg.isolve.iterative import bicgstab
 
-edgeU = EdgeField.vector(einterp(Ux), einterp(Uy))  # pole wektorowe predkosci [Ux, Uy] wyinterpolowanych wartosci na krawedzie (ze sr komurek  EdgeField.interp)
-phi = edgeU.dot(mesh.normals)  # phi = v n A  gdzie An tu rowne jest dl_krawedzi obruconej o 90 stopni
-
-
 # Correct phi to keep proper mass fluxes
 # P, internIndex = adjustPhi_eqSys(phi)
 # Pp = P[:, internIndex]
@@ -75,16 +71,20 @@ phi = edgeU.dot(mesh.normals)  # phi = v n A  gdzie An tu rowne jest dl_krawedzi
 
 #adjustPhiFlux()
 
-gradP = grad(p)
 
 for i in range(30):
     print "iter", i
+
+    edgeU = EdgeField.vector(einterp(Ux), einterp(Uy))
+    phi = edgeU.dot(mesh.normals)
 
     Mxc, Fxc = div(phi, Ux)  # ukladanie macierzy i wektora prawych stron, dostaje D i Rhs z div
     Myc, Fyc = div(phi, Uy)
 
     momX_M = Mxc - Mxd
     momY_M = Myc - Myd
+
+    gradP = cellGrad(p)
 
     momX_F = -(Fxc - Fxd) - gradP[:, 0]*mesh.cells_areas
     momY_F = -(Fyc - Fyd) - gradP[:, 1]*mesh.cells_areas
@@ -109,9 +109,6 @@ for i in range(30):
     Ux.setValues(xSol)
     Uy.setValues(ySol)
 
-    # Ux.setValues(0.3*Ux.data + 0.7*xSol)
-    # Uy.setValues(0.3*Uy.data + 0.7*ySol)
-
     A = np.array([np.array(momX_M.diag), np.array(momY_M.diag)]).T
 
     # Hx = - momX_M.offdiagmul(Ux.data)
@@ -121,32 +118,41 @@ for i in range(30):
     # Uy.setValues(Hy / A)
 
     edgeU = EdgeField.vector(einterp(Ux), einterp(Uy))
+
+    #Rhie-Chow velocity interpolation
+    coeffFieldX = SurfField(mesh, Neuman)
+    coeffFieldX.setValues(mesh.cells_areas/A[:,0])
+    coeffFieldY = SurfField(mesh, Neuman)
+    coeffFieldY.setValues(mesh.cells_areas/A[:,1])
+    coeffEdge = EdgeField.vector(EdgeField.interp(coeffFieldX),EdgeField.interp(coeffFieldY))
+    edgeGradP = edgeGrad(p)
+    edgeGradP.data *= coeffEdge.data
+    edgeU.data += edgeGradP.data
+
     phi = edgeU.dot(mesh.normals)
 
-
-    Mpd, Fpd = laplace( 1./A, p) #mesh.cells_areas[:,np.newaxis]
+    Mpd, Fpd = laplace( mesh.cells_areas[:,np.newaxis]/A, p) #mesh.cells_areas[:,np.newaxis]
     Fpd = -Fpd + edgeDiv(phi)
 
     pressSol = bicgstab(A=Mpd.sparse, b=Fpd, x0=p.data)[0]
 
-    # pressP = SurfField(mesh, Neuman)
-    # pressP.setValues(pressSol)
+    pressP = SurfField(mesh, Neuman)
+    pressP.setValues(pressSol)
 
     # ptmp = np.copy(p.data)
 
-    p.setValues(p.data + 0.3*(pressSol-p.data) )
+    p.setValues(p.data + 0.3*pressSol)
 
-    gradP = grad(p)
+    gradP = cellGrad(pressP)
 
-    Ux.setValues( Ux.data - gradP[:, 0] /A[:,0] ) #* mesh.cells_areas
-    Uy.setValues( Uy.data - gradP[:, 1] /A[:,1] ) #* mesh.cells_areas
+    Ux.setValues( Ux.data - gradP[:, 0] * mesh.cells_areas/A[:,0] ) #
+    Uy.setValues( Uy.data - gradP[:, 1] * mesh.cells_areas/A[:,1] ) #* mesh.cells_areas
 
     # p.setValues(0.7 * ptmp + 0.3 * p.data)
 
-    # gradP = grad(p)
+#    gradP = grad(p)
 
-    edgeU = EdgeField.vector(einterp(Ux), einterp(Uy))
-    phi = edgeU.dot(mesh.normals)
+
 
 
 
@@ -171,8 +177,8 @@ for i in range(30):
 # animate_contour_plot([Uy.data.reshape((n,n))])
 # plt.title("Uy")
 #
-# animate_contour_plot([p.data.reshape((n,n))])
-# plt.title("p")
+animate_contour_plot([p.data.reshape((n,n))])
+plt.title("p")
 
 Umag = np.sqrt(np.multiply(Ux.data, Ux.data) + np.multiply(Uy.data, Uy.data))
 animate_contour_plot([inter(mesh.xy, mesh.cells, Umag).reshape((n+1,n+1))], skip=1, repeat=False, interval=75, diff=viscosity, dt=dt, adj=0)

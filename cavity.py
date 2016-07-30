@@ -76,7 +76,7 @@ def adjustPhiFlux():
 
 adjustPhiFlux()
 
-gradP = grad(p)
+gradP = cellGrad(p)
 
 for i in range(1100):
     print "iter", i
@@ -130,7 +130,7 @@ for i in range(1100):
     p.setValues( p.data * 0.7 + 0.3 * pres )
     # p.setValues(pres)
 
-    gradP = grad(p)
+    gradP = cellGrad(p)
 
     Ux.setValues(Ux.data - gradP[:, 0]/A)
     Uy.setValues(Uy.data - gradP[:, 1]/A)
