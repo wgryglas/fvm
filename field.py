@@ -74,7 +74,7 @@ class Dirichlet(BoundaryField):                                         # clasa 
         return self.data.__getitem__(item)
 
     def insertDiffusiveFlux(self, edgeFieldCoeff, EqMat, Rhs):                      # dopisuje do macierzy_K WB
-        for i, id_edge in enumerate(self.mesh.boundaries[self.id,:]):
+        for i, id_edge in enumerate(self.mesh.boundaries[self.id]):
             field = self.field
             c = self.mesh.list_kr[id_edge, 2]                       # pobierz wlascicela tej krawedzi
 
@@ -93,7 +93,7 @@ class Dirichlet(BoundaryField):                                         # clasa 
 
     def insertConvectiveFlux(self, EqMat, Rhs, phi):
         for i, _ in enumerate(self.mesh.boundaries[self.id]):
-            id_edge = self.mesh.boundaries[self.id, i]    # indeks krawedzi w WB
+            id_edge = self.mesh.boundaries[self.id][i]    # indeks krawedzi w WB
             #field = self.field
             c = self.mesh.list_kr[id_edge, 2]             # pobierz wlascicela tej krawedzi
             edgeLen = self.mesh.eLengths[id_edge]
@@ -136,9 +136,9 @@ class Neuman(BoundaryField):                                        # klasa dla 
         pass
     # do upadate
     def extrapolate(self, sol):                                      # i to numer krawedzi w WB
-        for i, id_edge in enumerate(self.mesh.boundaries[self.id, :]):
+        for i, id_edge in enumerate(self.mesh.boundaries[self.id]):
             c = self.mesh.list_kr[id_edge, 2]                                            # pobierz wlascicela tej krawedzi
-            cc1 = sum(self.mesh.xy[self.mesh.cells[c], :]) / len(self.mesh.cells[c])  # srodek komorki  [x,y]
+            cc1 = self.mesh.cell_centers[c]
 
             n = self.mesh.edge_normal(id_edge)                   # normalny do wektora (krawedzi WB) ale o jego dlugosci (trzeba pobrac numer pod krawedzi )
             n = n / np.linalg.norm(n)                            # wersor normalny (podzielony przez swoja dlugosc)
@@ -154,7 +154,7 @@ class Neuman(BoundaryField):                                        # klasa dla 
 
 
     def insertDiffusiveFlux(self, edgeFieldCoeff, EqMat, Rhs):  # pobiera macierz K i wektor pr stron
-        for local_id, global_id in enumerate(self.mesh.boundaries[self.id,:]):
+        for local_id, global_id in enumerate(self.mesh.boundaries[self.id]):
             c = self.field.mesh.list_kr[global_id, 2]
             Rhs[c] += self.deriv * np.dot(self.mesh.Se[global_id],edgeFieldCoeff.data[global_id])
 

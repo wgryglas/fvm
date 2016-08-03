@@ -5,18 +5,21 @@
 DlPrzX = 1.
 DlPrzY = 1.
 
-n = 40
+n = 20
 
 dx = DlPrzX/n
 dy = DlPrzY/n
 
-niter = 100
+niter = 200
 
 x0, y0, dl = (0, 0, 0)
 
-viscosity = 0.001
+viscosity = 0.01
 
 mom_relax = 0.7
+
+outpath = "/home/wgryglas/fvcases/cavity/data"
+
 #=======================================================================================================================
 
 from mesh import Mesh
@@ -24,17 +27,28 @@ from fvm1 import *
 from field import *
 from interpolacja import *
 from scipy.sparse.linalg.isolve.iterative import bicgstab
+import gmsh_tools
+import time
 
-node_c, cells, bound = siatka_regularna_prost(n, dx, dy, x0, y0)
+t = time.clock()
 
-mesh = Mesh(node_c, cells, bound)
+#node_c, cells, bound = siatka_regularna_prost(n, dx, dy, x0, y0)
+#mesh = Mesh(node_c, cells, bound)
 
+mesh = Mesh(*gmsh_tools.load("/home/wgryglas/SMESH/triangle_cavity/gmesh/triangle_cavity.msh"))
+# mesh = Mesh(*gmsh_tools.load("/home/wgryglas/SMESH/cavity/gmesh/cavity.msh"))
+
+#mesh.show()
+
+print ">>>>> Mesh build in", time.clock()-t
+t = time.clock()
 
 Ux = SurfField(mesh, Dirichlet)
 Uy = SurfField(mesh, Dirichlet)
 p = SurfField(mesh, Neuman)
 
-Ux.setBoundaryCondition(Dirichlet(mesh, 2, 1.))
+Ux.setBoundaryCondition(Dirichlet(mesh, 0, 1.))
+
 
 np.set_printoptions(precision=3)
 
@@ -43,13 +57,14 @@ einterp = EdgeField.interp
 Mxd, Fxd = laplace(viscosity, Ux)
 Myd, Fyd = laplace(viscosity, Uy)
 
+edgeU = EdgeField.vector(einterp(Ux), einterp(Uy))
+phi = edgeU.dot(mesh.normals)
+gradP = cellGrad(p)
 
 for i in range(niter):
-    print "iter", i
-
+    print "========== iter", i, "============="
     edgeU = EdgeField.vector(einterp(Ux), einterp(Uy))
     phi = edgeU.dot(mesh.normals)
-
     gradP = cellGrad(p)
 
     Mxc, Fxc = div(phi, Ux)
@@ -60,19 +75,17 @@ for i in range(niter):
     momX_F = -(Fxc - Fxd) - gradP[:, 0]*mesh.cells_areas
     momY_F = -(Fyc - Fyd) - gradP[:, 1]*mesh.cells_areas
 
-    print "initial continuity error:", np.linalg.norm(edgeDiv(phi))
-    print "initial Ux residual:", np.linalg.norm(momX_M.dot(Ux.data) - momX_F)
-    print "initial Uy residual:", np.linalg.norm(momY_M.dot(Uy.data) - momY_F)
+    #Initial residuals
+    print "Initial continuity residual:", np.linalg.norm(edgeDiv(phi))
+    print "Initial Ux residual:", np.linalg.norm(momX_M.dot(Ux.data) - momX_F)
+    print "Initial Uy residual:", np.linalg.norm(momY_M.dot(Uy.data) - momY_F)
+
 
     momX_M.relax3(momX_F, Ux, mom_relax)
     momY_M.relax3(momY_F, Uy, mom_relax)
 
     Ux.setValues(bicgstab(A=momX_M.sparse, b=momX_F, x0=Ux.data, tol=1e-8)[0])
-
     Uy.setValues(bicgstab(A=momY_M.sparse, b=momY_F, x0=Uy.data, tol=1e-8)[0])
-
-    print "final Ux residual:", np.linalg.norm(momX_M.dot(Ux.data) - momX_F)
-    print "final Uy residual:", np.linalg.norm(momY_M.dot(Uy.data) - momY_F)
 
     A = np.array([np.array(momX_M.diag), np.array(momY_M.diag)]).T
 
@@ -108,21 +121,28 @@ for i in range(niter):
     Uy.setValues(Uy.data - gradPP[:, 1] * mesh.cells_areas/A[:, 1])
 
 
+    print ">>>>> Computed in", time.clock()-t
+    t = time.clock()
 
-animate_contour_plot([Ux.data.reshape((n,n))])
-plt.title("Ux")
 
-animate_contour_plot([Uy.data.reshape((n,n))])
-plt.title("Uy")
+# animate_contour_plot([Ux.data.reshape((n,n))])
+# plt.title("Ux")
+#uyRes,
+# animate_contour_plot([Uy.data.reshape((n,n))])
+# plt.title("Uy")
+#
+# animate_contour_plot([p.data.reshape((n,n))])
+# plt.title("p")
+#
+# Umag = np.sqrt(np.multiply(Ux.data, Ux.data) + np.multiply(Uy.data, Uy.data))
+# animate_contour_plot([inter(mesh.xy, mesh.cells, Umag).reshape((n+1,n+1))], skip=1, repeat=False, interval=75, diff=viscosity, dt=1, adj=0)
+#
+# from matplotlib.pyplot import quiver
+# q = quiver(mesh.cell_centers[:, 0], mesh.cell_centers[:, 1], Ux[:], Uy[:])
+# plt.title("magU")
 
-animate_contour_plot([p.data.reshape((n,n))])
-plt.title("p")
+# plt.show()
 
-Umag = np.sqrt(np.multiply(Ux.data, Ux.data) + np.multiply(Uy.data, Uy.data))
-animate_contour_plot([inter(mesh.xy, mesh.cells, Umag).reshape((n+1,n+1))], skip=1, repeat=False, interval=75, diff=viscosity, dt=1, adj=0)
-
-from matplotlib.pyplot import quiver
-q = quiver(mesh.cell_centers[:, 0], mesh.cell_centers[:, 1], Ux[:], Uy[:])
-plt.title("magU")
-
-plt.show()
+import vtk_tools
+vtk_tools.write_cell_data(outpath+"_cell.vtk", mesh, {"p": p}, {"U": [Ux, Uy]})
+vtk_tools.write_point_data(outpath+"_pnt.vtk", mesh, {"p": p}, {"U": [Ux, Uy]})

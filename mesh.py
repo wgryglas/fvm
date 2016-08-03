@@ -23,7 +23,7 @@ class Mesh:
         self.Se = self.__Se__()
         self.normals, self.eLengths = self.__normals_and_edge_lengths__()
         self.cell_centers = self.__cell_center__()
-        self.internalEdges = self.__internal_edges__()
+        self.internalEdges, self.boundaryEdges = self.__internal_external_edges__()
 
     #gdy chcemy wywolac prywatna funkcje ale dopiero gdy ktos o nia zapyta (dostanie wtedy macierz) (*****)
     # @property
@@ -48,11 +48,8 @@ class Mesh:
     def __cell_center__(self):
         cc = np.array([[0.] * 2] * (self.n))  # cell centers _ srodki komorek
         for i, cell in enumerate(self.cells):
-            c1, c2, c3, c4 = self.cells[i]
-            dl = len(self.cells[i])
-            cc[i][0] = (self.xy[c1][0] + self.xy[c2][0] + self.xy[c3][0] + self.xy[c4][0]) / dl  # srodki komomorek pobiera numery wezlow z cells i wczytuje wsp z wsp_wezl
-
-            cc[i][1] = (self.xy[c1][1] + self.xy[c2][1] + self.xy[c3][1] + self.xy[c4][1]) / len(self.cells[i])  # srodki komomorek pobiera numery wezlow z cells i wczytuje wsp z wsp_wezl
+            cc[i][0] = sum(self.xy[cell, 0])/len(cell)
+            cc[i][1] = sum(self.xy[cell, 1])/len(cell)
         return cc
 
 
@@ -75,13 +72,16 @@ class Mesh:
             area += 0.5 * (coord_list[i + 2] + coord_list[i]) * (coord_list[i + 3] - coord_list[i + 1])
         return area
 
-    def __internal_edges__(self):
+    def __internal_external_edges__(self):
         ids = list()
-
+        idsBnd = list()
         for i, k in enumerate(self.list_kr):
             if k[3] > -1:
                 ids.append(i)
-        return ids
+            else:
+                idsBnd.append(i)
+
+        return ids, idsBnd
 
     # zapisuje 4 war brzegowe jako liste z numerami krawedzi
     def __bound_to_edge_bound__(self, boundaries):                      # boundaries zawiera 4 krawedzie z siatki reg prost
@@ -142,23 +142,29 @@ class Mesh:
         return self.wektor_norm(*wektor)                 # pierwszy z wektor to pierwsza zmienna itd
 
     def __lista_krawedzi__(self):
-
+        """
+        Funkcja budujaca krawedzie, na tym etapie zwraca liste
+        zawierajaca zduplikowane krawedzie wewnetrzen(wspolne dla 2och komorek)
+        :return:
+        """
         s = 0
         for cell in self.cells:                          # [ 1 0 12 11]  = [kr1 kr2 kr3 kr4]
            s += len(cell)                                # zlicza ile w kolejnych komurkach pkt (krawedzi) (liczy ile jest w wierszu [1 2 12 11] czyli 4 krawedzie
 
         lista_kr = np.array([[0] * 4] * s, dtype=int)
 
+        edgeNum = 0
         for i, cell in enumerate(self.cells):
+            nNodes = len(cell)
+            for l in range(nNodes):
+                if l == nNodes-1:
+                    lista_kr[edgeNum] = [cell[l], cell[0], i, -1]
+                else:
+                    lista_kr[edgeNum] = [cell[l], cell[l+1], i, -1]
+                edgeNum += 1
 
-            ilosc = lista_kr.shape[1]                   # ilosc kolumn ( w cells ilosc kolumn odp ilosci krawedzi )
-            for licz in range(0, ilosc, 1):
-                if licz < ilosc -1:
-                    lista_kr[i * ilosc + licz] = [cell[licz], cell[licz + 1], i, -1]
-                elif licz == ilosc -1:
-                    lista_kr[i * ilosc + licz] = [cell[licz], cell[licz - (ilosc - 1)], i, -1]
-
-        return lista_kr                                 # [ 1 0 0 1]  = [pkt1 pkt2 wl sasiad]
+        # [ 1 0 0 1]  = [pkt1 pkt2 wl sasiad-jeszcze nie obecny]
+        return lista_kr
 
     def __edgeCenters__(self):
         s = len(self.list_kr)
@@ -233,3 +239,24 @@ class Mesh:
         del list_kr_unik, do_wyrzucenia
         return lista_krawedzi
 
+    def show(self):
+        import matplotlib.pyplot as plt
+        for k in self.list_kr:
+            p1 = self.xy[k[0]]
+            p2 = self.xy[k[1]]
+            c = "-b"
+            if k[3] == -1:
+                c = "-r"
+            plt.plot([p1[0], p2[0]], [p1[1], p2[1]], c)
+
+            xmin = min(self.xy[:, 0])
+            xmax = max(self.xy[:, 0])
+            dx = xmax - xmin
+            ymin = min(self.xy[:, 1])
+            ymax = max(self.xy[:, 1])
+            dy = ymax - ymin
+            plt.xlim([xmin-0.1*dx, xmax+0.1*dx])
+            plt.ylim([ymin-0.1*dy, ymax+0.1*dy])
+            plt.axes().set_aspect('equal', 'datalim')
+
+        plt.show()
