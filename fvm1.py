@@ -76,19 +76,22 @@ def laplace(coeff, field, matrixGeneratorFunction = fvMatrix):    # matrixProvid
     macierz_K_e = matrixGeneratorFunction(field.mesh)
     mesh = field.mesh
 
-    if not hasattr(coeff, "__iter__"):                  # czy to liczba czy tablica
-        coeff = np.ones((len(mesh.cells),2), dtype=float) * coeff
+    from field import EdgeField, SurfField, Neuman
+
+    if not hasattr(coeff, "__iter__") and not isinstance(coeff, EdgeField):                  # czy to liczba czy tablica
+        coeff = np.ones((len(mesh.cells), 2), dtype=float) * coeff
     elif isinstance(coeff, np.ndarray) and (len(coeff.shape) == 1 or coeff.shape[1] == 1):
         coeff = np.array([coeff,coeff]).T
 
 
-    from field import EdgeField, SurfField, Neuman
-
-    coeffFieldX = SurfField(mesh, bcGenerator=Neuman)
-    coeffFieldY = SurfField(mesh, bcGenerator=Neuman)
-    coeffFieldX.setValues(np.array(coeff[:, 0]))
-    coeffFieldY.setValues(np.array(coeff[:, 1]))
-    edgeCoeff = EdgeField.vector(EdgeField.interp(coeffFieldX), EdgeField.interp(coeffFieldY))
+    if isinstance(coeff, EdgeField):
+        edgeCoeff = coeff
+    else:
+        coeffFieldX = SurfField(mesh, bcGenerator=Neuman)
+        coeffFieldY = SurfField(mesh, bcGenerator=Neuman)
+        coeffFieldX.setValues(np.array(coeff[:, 0]))
+        coeffFieldY.setValues(np.array(coeff[:, 1]))
+        edgeCoeff = EdgeField.vector(EdgeField.interp(coeffFieldX), EdgeField.interp(coeffFieldY))
 
     # edgeCoeff.data = np.sum(edgeCoeff.data * mesh.normals, axis=1)
     # edgeCoeff.data = np.ones(edgeCoeff.data.shape[0])*0.25

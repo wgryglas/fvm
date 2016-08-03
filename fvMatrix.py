@@ -79,14 +79,6 @@ class fvMatrix:                   # do sparse co na przek, jakie wartosci (data)
 
         row_ptr = self.rowLengths
 
-        F = np.zeros(N,dtype=float)
-
-        # for row in range(N):
-        #     cStart = row_ptr[row]
-        #     cEnd = row_ptr[row+1]
-        #     globalColumns = self.vectorIndices[cStart:cEnd]
-        #     F[row] = self.vectorData[ cStart:cEnd ].dot( X[ globalColumns ] )
-
         F = np.array([self.vectorData[row_ptr[row]:row_ptr[row+1]].dot(X[self.vectorIndices[row_ptr[row]:row_ptr[row+1]]]) for row in range(N)])
 
         return F
@@ -106,6 +98,23 @@ class fvMatrix:                   # do sparse co na przek, jakie wartosci (data)
     def relax(self, coeff=0.5):
         for i in range(self.shape[0]):
             self.data[i] = [ d*coeff for d in self.data[i] ]
+        self.reset_cache()
+
+    def relax2(self, Rhs, Field, coeff):
+        self.diag = [d/coeff for d in self.diag]
+        for i in range(len(self.diag)):
+            d = self.diag[i]
+            self.diag[i]/=coeff
+            Rhs[i] += (self.diag[i]-d)*Field.data[i]
+            # Rhs[i] /= coeff
+        self.reset_cache()
+
+
+    def relax3(self, Rhs, Field, coeff):
+        c2 = 1.-coeff
+        for i in range(self.shape[0]):
+            Rhs[i] -= sum([d*c2*Field[index] for d, index in zip(self.data[i], self.indices[i])])
+            self.data[i] = [d*coeff for d in self.data[i]]
         self.reset_cache()
 
 
@@ -279,5 +288,38 @@ class fvMatrix:                   # do sparse co na przek, jakie wartosci (data)
         return np.array(H)
 
 
-# mat[5,3] = 5.         To samo
-# mat.addEntry(5,3,5.)
+
+#TESTS:
+
+def __get_test_matrix__():
+    mat = fvMatrix.diagonal(3)
+    mat[0, 1] = -1
+    mat[1, 0] = -1
+    mat[2, 0] = -1
+    mat[2, 1] = -1
+    return mat
+
+def test_mat_vec_dot_product():
+    import numpy as np
+    mat = __get_test_matrix__()
+    d = np.array([1, 2, 3])
+    print "mat:"
+    print mat.sparse.todense()
+    print "vec:"
+    print d
+    print "mat.dot(vec):"
+    print mat.dot(d)
+
+def test_scalar_mul():
+    print "mat:"
+    mat = __get_test_matrix__()
+    print mat.sparse.todense()
+    print "mat*(-1)"
+    print (mat*(-1)).sparse.todense()
+
+
+if __name__ == "__main__":
+    tests = [test_mat_vec_dot_product, test_scalar_mul]
+    for test in tests:
+        print "TEST:", test.__name__
+        test()

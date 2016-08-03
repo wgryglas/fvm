@@ -38,9 +38,21 @@ import numpy as np
 
 import numpy as np
 
-index = []
-for a in range(10):
-    index.append(a)
+# index = []
+# for a in range(10):
+#     index.append(a)
+#
+#
+# print index
 
 
-print index
+from fvMatrix import fvMatrix
+
+
+
+
+
+
+
+
+

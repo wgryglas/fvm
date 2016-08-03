@@ -56,6 +56,9 @@ class BoundaryField:          # pole dla krawedzi zawiera inf co na krawedziach 
         return self.data[item]
 
 
+    def clone(self):
+        pass
+
 
 class Dirichlet(BoundaryField):                                         # clasa dla kazdej krawedzi o warunku dirich
     def __init__(self, mesh, bId, fi=0):
@@ -101,6 +104,10 @@ class Dirichlet(BoundaryField):                                         # clasa 
                 Tbrzeg = self.data[i]
                 Rhs[c] += Tbrzeg * phiEdge * edgeLen
 
+    def clone(self):
+        newBc = Dirichlet(self.mesh, self.id)
+        newBc.data = np.copy(self.data)
+        return newBc
 
 class Neuman(BoundaryField):                                        # klasa dla kazdej krawedzi o warunku neuman
     def __init__(self, mesh, bId, derivativeValue = 0 ):            # derivativeValue po prostu zadana wart poch na krawedzi WB
@@ -109,6 +116,11 @@ class Neuman(BoundaryField):                                        # klasa dla 
         self.deriv = derivativeValue
         self.id = bId                                           # zapisuje numer krawedzi pod oznaczeniem id
         self.mesh = mesh
+
+    def clone(self):
+        newBc = Neuman(self.mesh, self.id, self.deriv)
+        newBc.data = np.copy(self.data)
+        return newBc
 
     # mamy pochodna (wartosci szukanej) na krawedzi ale nie wiemy jaka sama wartosci wiec do np wizualizacji przyda nam sie wartosc rozwiazaznia (calka z poch)
     def upadate(self, rozw_ukl_row):                            # gdy sie rozwiaze to ma uaktualnic sama siebie ta metoda te klase
@@ -178,8 +190,15 @@ class symmetry(Neuman):                                                         
 
 
 class SurfField:
-    def __init__(self, mesh, bcGenerator=BoundaryField):                        # pobiera mesh a z nim jego rozmiar i boundaries czyli WB
-        self.data = np.zeros(mesh.n)
+    def __init__(self, mesh, bcGenerator=BoundaryField, data=None):                        # pobiera mesh a z nim jego rozmiar i boundaries czyli WB
+
+        if data is None:
+            self.data = np.zeros(mesh.n)
+        elif data.shape[0] != mesh.n:
+            raise Exception("data lenght should be equal to mesh.n")
+        else:
+            self.data = np.array(data)
+
         self.boundaries = []
 
         for i, _ in enumerate(mesh.boundaries):
@@ -194,6 +213,12 @@ class SurfField:
 
     def __getitem__(self, item):
         return self.data.__getitem__(item)
+
+    def copyBoundaryConditions(self, otherSurfField):
+        self.boundaries = [ bc.clone() for bc in otherSurfField.boundaries]
+        for b in self.boundaries:
+            b.setField(self)
+        self.updateBoundaryValues()
 
     def setBoundaryCondition(self, bcObject):           # to zada warunki brzegowe bcObject( np class/object nemuam) na surface field
         bcObject.setField(self)                         # na przyklad  neuman.setFirld(self)
