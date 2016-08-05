@@ -35,10 +35,10 @@ t = time.clock()
 #node_c, cells, bound = siatka_regularna_prost(n, dx, dy, x0, y0)
 #mesh = Mesh(node_c, cells, bound)
 
-mesh = Mesh(*gmsh_tools.load("/home/wgryglas/SMESH/triangle_cavity/gmesh/triangle_cavity.msh"))
+mesh = Mesh(*gmsh_tools.load("/home/wgryglas/SMESH/bump/gmesh/bump.msh"))
+# mesh = Mesh(*gmsh_tools.load("/home/wgryglas/SMESH/around_block/gmesh/around_block.msh"))
+# mesh = Mesh(*gmsh_tools.load("/home/wgryglas/SMESH/triangle_cavity/gmesh/triangle_cavity.msh"))
 # mesh = Mesh(*gmsh_tools.load("/home/wgryglas/SMESH/cavity/gmesh/cavity.msh"))
-
-#mesh.show()
 
 print ">>>>> Mesh build in", time.clock()-t
 t = time.clock()
@@ -49,8 +49,17 @@ p = SurfField(mesh, Neuman)
 
 Ux.setBoundaryCondition(Dirichlet(mesh, 0, 1.))
 
+Ux.setBoundaryCondition(Neuman(mesh, 1, 0.))
+Uy.setBoundaryCondition(Neuman(mesh, 1, 0.))
+p.setBoundaryCondition(Dirichlet(mesh, 1, 0.))
 
-np.set_printoptions(precision=3)
+Ux.setBoundaryCondition(Neuman(mesh, 2, 0.))
+Uy.setBoundaryCondition(Dirichlet(mesh, 2, 0.))
+p.setBoundaryCondition(Neuman(mesh, 2, 0.))
+
+
+
+np.set_printoptions(precision = 3)
 
 einterp = EdgeField.interp
 

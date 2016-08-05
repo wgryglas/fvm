@@ -156,32 +156,35 @@ class Neuman(BoundaryField):                                        # klasa dla 
     def insertDiffusiveFlux(self, edgeFieldCoeff, EqMat, Rhs):  # pobiera macierz K i wektor pr stron
         for local_id, global_id in enumerate(self.mesh.boundaries[self.id]):
             c = self.field.mesh.list_kr[global_id, 2]
-            Rhs[c] += self.deriv * np.dot(self.mesh.Se[global_id],edgeFieldCoeff.data[global_id])
+            Rhs[c] += self.deriv * np.dot(self.mesh.Se[global_id], edgeFieldCoeff.data[global_id])
 
 
 
     def insertConvectiveFlux(self, EqMat, Rhs, phi):
+        mesh = self.mesh
         for i, _ in enumerate(self.mesh.boundaries[self.id]):
-            id_edge = self.mesh.boundaries[self.id, i]                          # indeks krawedzi w WB
+            id_edge = self.mesh.boundaries[self.id][i]                          # indeks krawedzi w WB
             field = self.field
             c = self.mesh.list_kr[id_edge, 2]                                   # pobierz wlascicela tej krawedzi
             edgeLen = self.mesh.eLengths[id_edge]
 
             phiEdge = phi[id_edge]
 
-            if phiEdge > 0:                                                     # wylatuje
+            if phiEdge > 0:
+                # wylatuje - upwind, wartosc z komorki
                 EqMat[c, c] += phiEdge * edgeLen
-            else:                                                               # gdy wlatuje
-                Tbrzeg = self.data[i]                                           # powinno byc z zewnetrznej krawedzi nie istniejacej bo wlatuje z zewnatrz
-                Rhs[c] += Tbrzeg * phiEdge * edgeLen
-                # nalezy poprawic to powyzej, tak aby z pochodnej i wartosc w srodku sasiedniej
-                # komorki pisac rownanie na wartosc wielkosci wlatujacej do srodka
-                # to powinno doprowadzic do wstawienia czegos do macierzy i czegos do wekt. pr. stron
+            else:
+                # gdy wlatuje interpolacja wartosci na zwenatrz komorki,
+                # za pomoca wartosci w komorce i pochodnej na brzegu
+                v = mesh.edgeCenters[id_edge] - mesh.cell_centers[c]
+                dv = v.dot(mesh.normals[id_edge])
+                EqMat[c, c] += phiEdge * edgeLen
+                Rhs[c] += self.deriv * dv * phiEdge * edgeLen
 
 
 
 
-class symmetry(Neuman):                                                                # klasa dla kazdej krawedzi o warunku neuman o wartosci poch w kier normalym = 0
+class Symmetry(Neuman):                                                                # klasa dla kazdej krawedzi o warunku neuman o wartosci poch w kier normalym = 0
     def __init__(self, mesh, bId):
         Neuman.__init__(self, mesh, bId, np.array([0.] * len(mesh.boundaries[bId])))    # konstruktor pierwotnej klasy po ktorej dziedziczy, derrevativeValue przyjmuje teraz liste o wartosicach 0 i rozmiarze dlugosci mesh.boundaries
         self.id = bId                                                                   # zapisuje numer krawedzi pod oznaczeniem id
